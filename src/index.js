@@ -9,25 +9,41 @@ class API {
   clientId = "7d121216c49aeca65433";
   clientSecret = "d72d983687e0f27fc6161c62e16ca8121654627c";
 
+  headers = {
+    Authorization: `Basic ${btoa(this.clientId + ":" + this.clientSecret)}`,
+  };
+
   async getUser(userName) {
     const response = await fetch(`https://api.github.com/users/${userName}`, {
       method: "GET",
-      headers: {
-        Authorization: `Basic ${btoa(this.clientId + ":" + this.clientSecret)}`
-      }
+      headers: this.headers,
     });
     const data = await response.json();
 
     if (!response.ok) {
       throw new Error(data.message);
     }
-
     return data;
+  }
+
+  async getRepos(userName) {
+    const response = await fetch(
+      `https://api.github.com/users/${userName}/repos?per_page=5`,
+      {
+        method: "GET",
+        headers: this.headers,
+      }
+    );
+    const reposData = await response.json();
+    if (!response.ok) {
+      throw new Error(data.message);
+    }
+    return reposData;
   }
 }
 
 class UI {
-  showProfile(user) {
+  showProfile(user, reposInfo) {
     profile.innerHTML = `
     <div class="card card-body mb-3">
         <div class="row">
@@ -51,8 +67,20 @@ class UI {
         </div>
       </div>
       <h3 class="page-heading mb-3">Latest Repos</h3>
-      <div class="repos"></div>
+      <div class="repos"> 
+      </div>
     `;
+
+    const reposDiv = profile.querySelector(".repos");
+    const reposList = document.createElement("ul");
+    reposDiv.append(reposList);
+    reposInfo.map((repo) => {
+      const repoLi = document.createElement("li");
+      reposList.append(repoLi);
+      repoLi.textContent = `Repository name: ${repo.name}; 
+                            Repository url: ${repo.url};
+                            Last update: ${repo.updated_at};`;
+    });
   }
 
   clearProfile() {
@@ -60,12 +88,12 @@ class UI {
   }
 
   showAlert(message, type, timeout = 3000) {
+
     this.clearAlert();
 
     const div = document.createElement("div");
     div.className = `alert ${type}`;
     div.appendChild(document.createTextNode(message));
-
     const search = document.querySelector(".search");
     container.insertBefore(div, search);
 
@@ -94,16 +122,11 @@ const handleInput = async (event) => {
   try {
     const api = new API();
     const user = await api.getUser(userText);
-    // ui.clearAlert();
+    const repos = await api.getRepos(userText);
 
-    // fetch(`https://api.github.com/users/${userText}/repos?per_page=5`, {
-    //   method: "GET",
-    //   headers: {
-    //     Authorization: `Basic ${btoa(this.clientId + ":" + this.clientSecret)}`,
-    //   },
-    // });
-
-    ui.showProfile(user);
+    ui.clearAlert();
+    ui.showProfile(user, repos);
+    
   } catch (error) {
     ui.showAlert(error.message, "alert-danger");
     ui.clearProfile();
@@ -123,4 +146,5 @@ const debounce = (func, delay) => {
 };
 
 // Event listeners
+
 searchUserInput.addEventListener("input", debounce(handleInput, 500));
